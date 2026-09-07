@@ -28,10 +28,15 @@ function setLocal(key, data) {
 export async function getPapers() {
   if (isSupabaseConfigured && supabase) {
     try {
-      const { data, error } = await supabase.from('newspapers').select('*').order('date', { ascending: false });
-      if (!error && data && data.length > 0) {
+      const { data, error } = await supabase.from('newspapers').select('*').order('created_at', { ascending: false });
+      if (error) {
+        console.error('Supabase getPapers error:', error);
+      } else if (data && data.length > 0) {
         const formatted = INITIAL_BRANDS.map(brand => {
-          const matched = data.find(d => d.source === brand.brandName || d.title === brand.brandName);
+          const matched = data.find(d => 
+            (d.source && d.source.toLowerCase() === brand.brandName.toLowerCase()) || 
+            (d.title && d.title.toLowerCase() === brand.brandName.toLowerCase())
+          );
           if (matched) {
             return {
               ...brand,
@@ -73,7 +78,7 @@ export async function uploadPaperFile(paperBrand, file) {
 
       if (uploadError) {
         console.error('Supabase storage upload error:', uploadError);
-        alert(`Supabase Storage Upload Notice: ${uploadError.message}. Make sure the Storage policy script is executed in Supabase SQL editor.`);
+        alert(`Supabase Storage Notice: ${uploadError.message}`);
       } else {
         const { data: urlData } = supabase.storage
           .from('newspapers')
@@ -84,10 +89,10 @@ export async function uploadPaperFile(paperBrand, file) {
       console.error('Storage upload exception:', e);
     }
   } else {
-    alert('Notice: VITE_SUPABASE_URL environment variable is missing on Vercel. Please check Vercel Environment Variables and redeploy.');
+    alert('Notice: Supabase environment variables missing on Vercel.');
   }
 
-  // Fallback to local Blob URL if offline or unconfigured
+  // Fallback to local Blob URL if offline
   if (!publicUrl) {
     publicUrl = URL.createObjectURL(file);
   }
@@ -108,6 +113,7 @@ export async function uploadPaperFile(paperBrand, file) {
       const { error: dbError } = await supabase.from('newspapers').upsert(paperRecord);
       if (dbError) {
         console.error('Supabase database upsert error:', dbError);
+        alert(`Supabase DB Error: ${dbError.message}`);
       }
     } catch (e) {
       console.error('Database exception:', e);
