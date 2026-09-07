@@ -26,32 +26,71 @@ function setLocal(key, data) {
 }
 
 export async function getPapers() {
+  const todayDate = new Date().toISOString().split('T')[0];
+
   if (isSupabaseConfigured && supabase) {
     try {
-      const { data, error } = await supabase.from('newspapers').select('*').order('created_at', { ascending: false });
-      if (error) {
-        console.error('Supabase getPapers error:', error);
-      } else if (data && data.length > 0) {
-        const formatted = INITIAL_BRANDS.map(brand => {
-          const matched = data.find(d => 
-            (d.source && d.source.toLowerCase() === brand.brandName.toLowerCase()) || 
-            (d.title && d.title.toLowerCase() === brand.brandName.toLowerCase())
+      // 1. Fetch records from Supabase Database
+      const { data: dbData, error: dbError } = await supabase
+        .from('newspapers')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // 2. Also check files in Storage bucket 'newspapers' for today
+      let storageFilesMap = {};
+      try {
+        const { data: storageData } = await supabase.storage
+          .from('newspapers')
+          .list(todayDate);
+
+        if (storageData && storageData.length > 0) {
+          storageData.forEach(file => {
+            const { data: urlData } = supabase.storage
+              .from('newspapers')
+              .getPublicUrl(`${todayDate}/${file.name}`);
+            
+            if (urlData?.publicUrl) {
+              const nameLower = file.name.toLowerCase();
+              if (nameLower.includes('hindu')) storageFilesMap['The Hindu'] = urlData.publicUrl;
+              if (nameLower.includes('express') || nameLower.includes('ie')) storageFilesMap['The Indian Express'] = urlData.publicUrl;
+              if (nameLower.includes('times') || nameLower.includes('toi')) storageFilesMap['The Times of India'] = urlData.publicUrl;
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Storage list check note:', e);
+      }
+
+      // Combine database records + storage files
+      const formatted = INITIAL_BRANDS.map(brand => {
+        let pdfUrl = storageFilesMap[brand.brandName] || null;
+        let paperDate = todayDate;
+
+        if (dbData && dbData.length > 0) {
+          const matched = dbData.find(d =>
+            (d.source && d.source.toLowerCase().includes(brand.brandName.toLowerCase())) ||
+            (d.title && d.title.toLowerCase().includes(brand.brandName.toLowerCase()))
           );
           if (matched) {
-            return {
-              ...brand,
-              pdfUrl: matched.pdf_url,
-              date: matched.date,
-              readPage: matched.read_page || 0,
-              completed: matched.completed || false,
-              editorialSnippet: `Today's edition uploaded on ${matched.date}.`
-            };
+            pdfUrl = matched.pdf_url || matched.pdfUrl || pdfUrl;
+            paperDate = matched.date || paperDate;
           }
-          return brand;
-        });
-        setLocal(KEYS.PAPERS, formatted);
-        return formatted;
-      }
+        }
+
+        return {
+          ...brand,
+          pdfUrl,
+          date: paperDate,
+          readPage: pdfUrl ? 1 : 0,
+          completed: false,
+          editorialSnippet: pdfUrl
+            ? `Today's edition available (${paperDate}).`
+            : `Upload today's edition of ${brand.brandName} using the button below.`
+        };
+      });
+
+      setLocal(KEYS.PAPERS, formatted);
+      return formatted;
     } catch (e) {
       console.error('Failed to get newspapers from Supabase:', e);
     }
@@ -68,7 +107,7 @@ export async function uploadPaperFile(paperBrand, file) {
 
   if (isSupabaseConfigured && supabase) {
     try {
-      // 1. Upload PDF file directly to Supabase Storage
+      // 1. Upload PDF file directly to Supabase Storage bucket 'newspapers'
       const { error: uploadError } = await supabase.storage
         .from('newspapers')
         .upload(storagePath, file, {
@@ -113,7 +152,6 @@ export async function uploadPaperFile(paperBrand, file) {
       const { error: dbError } = await supabase.from('newspapers').upsert(paperRecord);
       if (dbError) {
         console.error('Supabase database upsert error:', dbError);
-        alert(`Supabase DB Error: ${dbError.message}`);
       }
     } catch (e) {
       console.error('Database exception:', e);
