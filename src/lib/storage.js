@@ -30,12 +30,82 @@ export async function getPapers() {
     try {
       const { data, error } = await supabase.from('newspapers').select('*').order('date', { ascending: false });
       if (!error && data && data.length > 0) {
-        setLocal(KEYS.PAPERS, data);
-        return data;
+        // Map database fields to UI component fields
+        const formatted = INITIAL_BRANDS.map(brand => {
+          const matched = data.find(d => d.source === brand.brandName || d.title === brand.brandName);
+          if (matched) {
+            return {
+              ...brand,
+              pdfUrl: matched.pdf_url,
+              date: matched.date,
+              readPage: matched.read_page || 0,
+              completed: matched.completed || false,
+              editorialSnippet: `Today's edition uploaded on ${matched.date}.`
+            };
+          }
+          return brand;
+        });
+        setLocal(KEYS.PAPERS, formatted);
+        return formatted;
       }
     } catch (e) {}
   }
   return getLocal(KEYS.PAPERS, INITIAL_BRANDS);
+}
+
+export async function uploadPaperFile(paperBrand, file) {
+  const todayDate = new Date().toISOString().split('T')[0];
+  const brandSlug = paperBrand.id;
+  const storagePath = `${todayDate}/${brandSlug}.pdf`;
+
+  let publicUrl = null;
+
+  if (isSupabaseConfigured) {
+    try {
+      // Upload PDF directly to Supabase Cloud Storage bucket 'newspapers'
+      const { error: uploadError } = await supabase.storage
+        .from('newspapers')
+        .upload(storagePath, file, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage
+          .from('newspapers')
+          .getPublicUrl(storagePath);
+        publicUrl = urlData?.publicUrl;
+      } else {
+        console.error('Supabase storage upload error:', uploadError);
+      }
+    } catch (e) {
+      console.error('Storage exception:', e);
+    }
+  }
+
+  // Fallback to local object URL if offline
+  if (!publicUrl) {
+    publicUrl = URL.createObjectURL(file);
+  }
+
+  const paperRecord = {
+    id: `np-${brandSlug}-${todayDate}`,
+    date: todayDate,
+    title: paperBrand.brandName,
+    source: paperBrand.brandName,
+    pdf_url: publicUrl,
+    page_count: 14,
+    read_page: 1,
+    completed: false
+  };
+
+  if (isSupabaseConfigured) {
+    try {
+      await supabase.from('newspapers').upsert(paperRecord);
+    } catch (e) {}
+  }
+
+  return await getPapers();
 }
 
 export async function savePaper(updatedPaper) {
@@ -52,7 +122,15 @@ export async function savePaper(updatedPaper) {
 
   if (isSupabaseConfigured) {
     try {
-      await supabase.from('newspapers').upsert(updatedPaper);
+      await supabase.from('newspapers').upsert({
+        id: updatedPaper.id,
+        date: updatedPaper.date,
+        title: updatedPaper.brandName || updatedPaper.title,
+        source: updatedPaper.brandName || updatedPaper.source,
+        pdf_url: updatedPaper.pdfUrl,
+        read_page: updatedPaper.readPage,
+        completed: updatedPaper.completed
+      });
     } catch (e) {}
   }
   return updated;

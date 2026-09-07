@@ -9,7 +9,7 @@ import NotesSection from './components/notes/NotesSection';
 import ResourceRequestWidget from './components/widgets/ResourceRequestWidget';
 
 import {
-  getPapers, savePaper,
+  getPapers, uploadPaperFile, savePaper,
   getNotes, saveNote, deleteNote,
   getStreak, saveStreak,
   getResourceRequests, saveResourceRequest
@@ -51,9 +51,9 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Handle PDF Upload for a specific paper brand card
-  const handleUploadPaper = async (updatedPaper) => {
-    const updatedList = await savePaper(updatedPaper);
+  // Handle PDF File Upload with Supabase Storage Cloud Sync
+  const handleUploadPaperFile = async (paperBrand, file) => {
+    const updatedList = await uploadPaperFile(paperBrand, file);
     setPapers(updatedList);
   };
 
@@ -140,8 +140,7 @@ export default function App() {
                     key={paper.id}
                     paper={paper}
                     onOpenReader={handleOpenReader}
-                    onUploadPaper={handleUploadPaper}
-                    onToggleComplete={() => {}}
+                    onUploadFile={handleUploadPaperFile}
                   />
                 ))}
               </div>

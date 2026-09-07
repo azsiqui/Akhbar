@@ -1,27 +1,16 @@
-import React, { useRef } from 'react';
-import { BookOpen, Upload, CheckCircle2, Calendar, FileQuestion } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { BookOpen, Upload, CheckCircle2, Calendar, Loader2 } from 'lucide-react';
 
-export default function BrandNewspaperCard({ paper, onOpenReader, onUploadPaper, onToggleComplete }) {
+export default function BrandNewspaperCard({ paper, onOpenReader, onUploadFile }) {
   const fileInputRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const blobUrl = URL.createObjectURL(file);
-      const todayDate = new Date().toISOString().split('T')[0];
-
-      // Auto-assign title = brandName, date = upload date (today)
-      const updated = {
-        ...paper,
-        date: todayDate,
-        title: paper.brandName,
-        pdfUrl: blobUrl,
-        readPage: 1,
-        completed: false,
-        editorialSnippet: `Today's edition uploaded on ${todayDate}.`
-      };
-
-      onUploadPaper(updated);
+      setIsUploading(true);
+      await onUploadFile(paper, file);
+      setIsUploading(false);
     }
   };
 
@@ -107,11 +96,21 @@ export default function BrandNewspaperCard({ paper, onOpenReader, onUploadPaper,
           {/* Direct 1-Click Upload Button */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            title="Upload today's PDF for this paper (Auto-assigns title & date)"
-            className="py-2.5 px-3 rounded-xl bg-forest-50 hover:bg-forest-100 dark:bg-forest-950/40 dark:hover:bg-forest-900/40 text-forest-800 dark:text-forest-300 border border-forest-300/60 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95"
+            disabled={isUploading}
+            title="Upload today's PDF for this paper (Auto-assigns title & date and syncs to cloud)"
+            className="py-2.5 px-3 rounded-xl bg-forest-50 hover:bg-forest-100 dark:bg-forest-950/40 dark:hover:bg-forest-900/40 text-forest-800 dark:text-forest-300 border border-forest-300/60 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50"
           >
-            <Upload className="w-4 h-4" />
-            <span>{hasPdf ? 'Replace PDF' : 'Upload PDF'}</span>
+            {isUploading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="w-4 h-4" />
+                <span>{hasPdf ? 'Replace PDF' : 'Upload PDF'}</span>
+              </>
+            )}
           </button>
 
           {/* Hidden File Input */}
