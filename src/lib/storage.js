@@ -113,7 +113,7 @@ export function saveStreak(streak) {
   return streak;
 }
 
-// --- RESOURCE REQUESTS API ---
+// --- RESOURCE REQUESTS (Arshi's Wishlist) ---
 export async function getResourceRequests() {
   if (isSupabaseConfigured) {
     try {
@@ -130,18 +130,27 @@ export async function getResourceRequests() {
 export async function saveResourceRequest(reqData) {
   const requests = await getResourceRequests();
   const newReq = {
-    ...reqData,
     id: reqData.id || `req-${Date.now()}`,
+    resource_name: reqData.resource_name,
+    category: reqData.category || 'Monthly Magazine',
+    note: reqData.note || '',
     status: reqData.status || 'Pending',
     created_at: new Date().toISOString()
   };
+
   const updated = [newReq, ...requests];
   setLocal(KEYS.REQUESTS, updated);
 
   if (isSupabaseConfigured) {
     try {
-      await supabase.from('resource_requests').upsert(newReq);
-    } catch (e) {}
+      const { error } = await supabase.from('resource_requests').insert([newReq]);
+      if (error) {
+        console.error('Supabase resource_requests insert error:', error);
+      }
+    } catch (e) {
+      console.error('Supabase sync exception:', e);
+    }
   }
+
   return updated;
 }

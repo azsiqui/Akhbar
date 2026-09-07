@@ -1,5 +1,5 @@
-import React from 'react';
-import { Newspaper, BookOpen, FileText, Sun, Moon, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Newspaper, FileText, Sun, Moon, Clock } from 'lucide-react';
 
 export default function TopHeader({
   activeView,
@@ -7,6 +7,24 @@ export default function TopHeader({
   isDarkMode,
   onToggleDarkMode
 }) {
+  const [currentTime, setCurrentTime] = useState('');
+
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      }));
+    };
+
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const todayStr = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -18,24 +36,31 @@ export default function TopHeader({
     <header className="sticky top-0 z-30 bg-cream-100/90 dark:bg-academic-paperDark/90 backdrop-blur-md border-b border-brown-200/50 dark:border-academic-borderDark transition-colors duration-300">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         
-        {/* Brand: Arshi's Reading Room */}
+        {/* Brand: Logo 'أ' + Title: Arshi's Desk + Only Date Subtext */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveView('dashboard')}
             className="flex items-center gap-2.5 group text-left"
           >
-            <div className="w-10 h-10 rounded-xl bg-brown-500 dark:bg-gold-400 flex items-center justify-center text-cream-100 dark:text-brown-950 font-serif font-bold text-xl shadow-xs group-hover:scale-105 transition-transform">
-              📚
+            {/* Reverted Logo 'أ' */}
+            <div className="w-9 h-9 rounded-xl bg-brown-500 dark:bg-gold-400 flex items-center justify-center text-cream-100 dark:text-brown-950 font-serif font-bold text-lg shadow-xs group-hover:scale-105 transition-transform">
+              أ
             </div>
             <div>
               <span className="font-serif font-bold text-lg sm:text-xl text-brown-900 dark:text-cream-100 tracking-tight block leading-none">
-                Arshi's Reading Room
+                Arshi's Desk
               </span>
               <span className="text-[10px] text-brown-500 dark:text-cream-400 font-sans mt-0.5 block">
-                UPSC Desk &bull; {todayStr}
+                {todayStr}
               </span>
             </div>
           </button>
+        </div>
+
+        {/* Live Digital Clock in Header */}
+        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-brown-50/80 dark:bg-brown-900/40 border border-brown-200/50 dark:border-brown-800 text-xs font-mono font-bold text-brown-800 dark:text-gold-300 shadow-xs">
+          <Clock className="w-3.5 h-3.5 text-gold-600 dark:text-gold-400" />
+          <span>{currentTime}</span>
         </div>
 
         {/* View Tabs */}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookPlus, Send, CheckCircle2, Clock, Sparkles } from 'lucide-react';
+import { Heart, Send, CheckCircle2, Clock } from 'lucide-react';
 
 export default function ResourceRequestWidget({ requests = [], onRequestResource }) {
   const [resourceName, setResourceName] = useState('');
@@ -26,28 +26,24 @@ export default function ResourceRequestWidget({ requests = [], onRequestResource
   return (
     <div className="bg-white dark:bg-academic-cardDark rounded-2xl border border-brown-200/60 dark:border-academic-borderDark p-5 shadow-academic space-y-5">
       
-      {/* Header */}
+      {/* Header: Arshi's Wishlist */}
       <div className="flex items-center justify-between border-b pb-3 border-brown-200/40 dark:border-brown-800">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-gold-400 text-brown-950 font-bold">
-            <BookPlus className="w-5 h-5" />
+            <Heart className="w-5 h-5 fill-brown-950" />
           </div>
           <div>
             <h3 className="font-serif font-bold text-lg text-brown-900 dark:text-cream-100">
-              Request a Study Resource
+              Arshi's Wishlist
             </h3>
             <p className="text-xs text-brown-500 dark:text-cream-400 font-sans">
               Need a magazine, book, or extra paper? Write it here for your brother!
             </p>
           </div>
         </div>
-
-        <span className="text-xs text-gold-700 dark:text-gold-400 font-serif italic hidden sm:block">
-          Arshi's Wishlist Desk
-        </span>
       </div>
 
-      {/* Request Input Form */}
+      {/* Request Input Form (No Grey Placeholder Text) */}
       <form onSubmit={handleSubmit} className="space-y-3 font-sans text-xs">
         
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -58,7 +54,6 @@ export default function ResourceRequestWidget({ requests = [], onRequestResource
             <input
               type="text"
               required
-              placeholder="e.g. Vision IAS August Monthly, Yojana Magazine, Spectrum History..."
               value={resourceName}
               onChange={(e) => setResourceName(e.target.value)}
               className="w-full px-3 py-2 rounded-xl bg-cream-50 dark:bg-brown-900 border border-brown-200 dark:border-brown-700 text-brown-900 dark:text-cream-100 focus:outline-none focus:ring-1 focus:ring-gold-400"
@@ -88,7 +83,6 @@ export default function ResourceRequestWidget({ requests = [], onRequestResource
           </label>
           <input
             type="text"
-            placeholder="e.g. August edition PDF or latest standard version"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             className="w-full px-3 py-2 rounded-xl bg-cream-50 dark:bg-brown-900 border border-brown-200 dark:border-brown-700 text-brown-900 dark:text-cream-100 focus:outline-none"
@@ -98,7 +92,7 @@ export default function ResourceRequestWidget({ requests = [], onRequestResource
         <div className="flex items-center justify-between pt-1">
           {submitted ? (
             <span className="text-xs text-forest-600 dark:text-forest-400 font-bold flex items-center gap-1">
-              <CheckCircle2 className="w-4 h-4" /> Request sent! Saved to database.
+              <CheckCircle2 className="w-4 h-4" /> Wishlist item saved & sent to database!
             </span>
           ) : (
             <span className="text-xs text-brown-500 dark:text-cream-400 font-sans italic">
@@ -117,11 +111,11 @@ export default function ResourceRequestWidget({ requests = [], onRequestResource
 
       </form>
 
-      {/* Requested Items List */}
+      {/* Requested Items Log */}
       {requests.length > 0 && (
         <div className="pt-3 border-t border-brown-200/40 dark:border-brown-800 space-y-2">
           <h4 className="text-xs font-bold uppercase tracking-wider text-brown-500 dark:text-cream-400 font-sans">
-            Requested Resources Log ({requests.length})
+            Wishlist Items Log ({requests.length})
           </h4>
 
           <div className="space-y-2">

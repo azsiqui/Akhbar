@@ -6,7 +6,7 @@ export const INITIAL_BRANDS = [
     badgeColor: 'bg-brown-900 text-gold-200 border-brown-700',
     headerBg: 'from-brown-900 via-brown-800 to-brown-950',
     thumbnail: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=600&q=80',
-    pdfUrl: null, // Set to null so no dummy paper is downloaded
+    pdfUrl: null,
     date: new Date().toISOString().split('T')[0],
     pageCount: 14,
     readPage: 0,
@@ -68,13 +68,5 @@ export const INITIAL_STREAK = {
   total_read: 42
 };
 
-export const INITIAL_RESOURCE_REQUESTS = [
-  {
-    id: 'req-1',
-    resource_name: 'Vision IAS Monthly Current Affairs (August 2026)',
-    category: 'Monthly Magazine',
-    note: 'Need PDF for Economy & IR revision.',
-    status: 'Pending',
-    created_at: new Date().toISOString()
-  }
-];
+// Initial empty requests list (no dummy log)
+export const INITIAL_RESOURCE_REQUESTS = [];
