@@ -26,11 +26,10 @@ function setLocal(key, data) {
 }
 
 export async function getPapers() {
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase.from('newspapers').select('*').order('date', { ascending: false });
       if (!error && data && data.length > 0) {
-        // Map database fields to UI component fields
         const formatted = INITIAL_BRANDS.map(brand => {
           const matched = data.find(d => d.source === brand.brandName || d.title === brand.brandName);
           if (matched) {
@@ -48,7 +47,9 @@ export async function getPapers() {
         setLocal(KEYS.PAPERS, formatted);
         return formatted;
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Failed to get newspapers from Supabase:', e);
+    }
   }
   return getLocal(KEYS.PAPERS, INITIAL_BRANDS);
 }
@@ -60,9 +61,9 @@ export async function uploadPaperFile(paperBrand, file) {
 
   let publicUrl = null;
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
-      // Upload PDF directly to Supabase Cloud Storage bucket 'newspapers'
+      // 1. Upload PDF file directly to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('newspapers')
         .upload(storagePath, file, {
@@ -70,20 +71,23 @@ export async function uploadPaperFile(paperBrand, file) {
           upsert: true
         });
 
-      if (!uploadError) {
+      if (uploadError) {
+        console.error('Supabase storage upload error:', uploadError);
+        alert(`Supabase Storage Upload Notice: ${uploadError.message}. Make sure the Storage policy script is executed in Supabase SQL editor.`);
+      } else {
         const { data: urlData } = supabase.storage
           .from('newspapers')
           .getPublicUrl(storagePath);
         publicUrl = urlData?.publicUrl;
-      } else {
-        console.error('Supabase storage upload error:', uploadError);
       }
     } catch (e) {
-      console.error('Storage exception:', e);
+      console.error('Storage upload exception:', e);
     }
+  } else {
+    alert('Notice: VITE_SUPABASE_URL environment variable is missing on Vercel. Please check Vercel Environment Variables and redeploy.');
   }
 
-  // Fallback to local object URL if offline
+  // Fallback to local Blob URL if offline or unconfigured
   if (!publicUrl) {
     publicUrl = URL.createObjectURL(file);
   }
@@ -99,10 +103,15 @@ export async function uploadPaperFile(paperBrand, file) {
     completed: false
   };
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
-      await supabase.from('newspapers').upsert(paperRecord);
-    } catch (e) {}
+      const { error: dbError } = await supabase.from('newspapers').upsert(paperRecord);
+      if (dbError) {
+        console.error('Supabase database upsert error:', dbError);
+      }
+    } catch (e) {
+      console.error('Database exception:', e);
+    }
   }
 
   return await getPapers();
@@ -120,7 +129,7 @@ export async function savePaper(updatedPaper) {
   }
   setLocal(KEYS.PAPERS, updated);
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
       await supabase.from('newspapers').upsert({
         id: updatedPaper.id,
@@ -137,7 +146,7 @@ export async function savePaper(updatedPaper) {
 }
 
 export async function getNotes() {
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase.from('notes').select('*').order('created_at', { ascending: false });
       if (!error && data && data.length > 0) {
@@ -161,7 +170,7 @@ export async function saveNote(note) {
   }
   setLocal(KEYS.NOTES, updated);
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
       await supabase.from('notes').upsert(note);
     } catch (e) {}
@@ -174,7 +183,7 @@ export async function deleteNote(id) {
   const updated = notes.filter(n => n.id !== id);
   setLocal(KEYS.NOTES, updated);
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
       await supabase.from('notes').delete().eq('id', id);
     } catch (e) {}
@@ -193,7 +202,7 @@ export function saveStreak(streak) {
 
 // --- RESOURCE REQUESTS (Arshi's Wishlist) ---
 export async function getResourceRequests() {
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
       const { data, error } = await supabase.from('resource_requests').select('*').order('created_at', { ascending: false });
       if (!error && data) {
@@ -219,7 +228,7 @@ export async function saveResourceRequest(reqData) {
   const updated = [newReq, ...requests];
   setLocal(KEYS.REQUESTS, updated);
 
-  if (isSupabaseConfigured) {
+  if (isSupabaseConfigured && supabase) {
     try {
       const { error } = await supabase.from('resource_requests').insert([newReq]);
       if (error) {

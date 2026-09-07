@@ -1,4 +1,4 @@
--- Arshi's Reading Room - Supabase Schema
+-- Arshi's Desk - Supabase Database & Storage Schema
 
 -- 1. Newspapers Table
 CREATE TABLE IF NOT EXISTS newspapers (
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS notes (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Resource Requests Table (Wishlist for Arshi)
+-- 3. Resource Requests Table (Arshi's Wishlist)
 CREATE TABLE IF NOT EXISTS resource_requests (
   id TEXT PRIMARY KEY,
   resource_name TEXT NOT NULL,
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS resource_requests (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Row Level Security
+-- Database Row Level Security
 ALTER TABLE newspapers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resource_requests ENABLE ROW LEVEL SECURITY;
@@ -46,3 +46,17 @@ ALTER TABLE resource_requests ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow all newspapers" ON newspapers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all notes" ON notes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all resource_requests" ON resource_requests FOR ALL USING (true) WITH CHECK (true);
+
+-- 4. Storage Bucket Policies for 'newspapers' Bucket
+-- (Allows uploading PDF files directly from web app without authentication)
+CREATE POLICY "Allow public uploads to newspapers bucket"
+ON storage.objects FOR INSERT
+WITH CHECK (bucket_id = 'newspapers');
+
+CREATE POLICY "Allow public updates to newspapers bucket"
+ON storage.objects FOR UPDATE
+USING (bucket_id = 'newspapers');
+
+CREATE POLICY "Allow public select from newspapers bucket"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'newspapers');
