@@ -1,5 +1,5 @@
 import React from 'react';
-import { Newspaper, BookOpen, FileText, Sun, Moon } from 'lucide-react';
+import { Newspaper, BookOpen, FileText, Sun, Moon, Sparkles } from 'lucide-react';
 
 export default function TopHeader({
   activeView,
@@ -18,21 +18,21 @@ export default function TopHeader({
     <header className="sticky top-0 z-30 bg-cream-100/90 dark:bg-academic-paperDark/90 backdrop-blur-md border-b border-brown-200/50 dark:border-academic-borderDark transition-colors duration-300">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         
-        {/* Brand */}
+        {/* Brand: Arshi's Reading Room */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => setActiveView('dashboard')}
-            className="flex items-center gap-2.5 group"
+            className="flex items-center gap-2.5 group text-left"
           >
-            <div className="w-9 h-9 rounded-xl bg-brown-500 dark:bg-gold-400 flex items-center justify-center text-cream-100 dark:text-brown-950 font-serif font-bold text-lg shadow-xs group-hover:scale-105 transition-transform">
-              أ
+            <div className="w-10 h-10 rounded-xl bg-brown-500 dark:bg-gold-400 flex items-center justify-center text-cream-100 dark:text-brown-950 font-serif font-bold text-xl shadow-xs group-hover:scale-105 transition-transform">
+              📚
             </div>
-            <div className="text-left">
-              <span className="font-serif font-bold text-xl text-brown-900 dark:text-cream-100 tracking-tight block leading-none">
-                Akhbar
+            <div>
+              <span className="font-serif font-bold text-lg sm:text-xl text-brown-900 dark:text-cream-100 tracking-tight block leading-none">
+                Arshi's Reading Room
               </span>
-              <span className="text-[10px] text-brown-500 dark:text-cream-400 font-sans">
-                {todayStr}
+              <span className="text-[10px] text-brown-500 dark:text-cream-400 font-sans mt-0.5 block">
+                UPSC Desk &bull; {todayStr}
               </span>
             </div>
           </button>

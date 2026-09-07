@@ -6,8 +6,14 @@ import FocusClock from './components/widgets/FocusClock';
 import BrandNewspaperCard from './components/newspapers/BrandNewspaperCard';
 import SimplePDFReader from './components/reader/SimplePDFReader';
 import NotesSection from './components/notes/NotesSection';
+import ResourceRequestWidget from './components/widgets/ResourceRequestWidget';
 
-import { getPapers, savePaper, getNotes, saveNote, deleteNote, getStreak, saveStreak } from './lib/storage';
+import {
+  getPapers, savePaper,
+  getNotes, saveNote, deleteNote,
+  getStreak, saveStreak,
+  getResourceRequests, saveResourceRequest
+} from './lib/storage';
 
 export default function App() {
   const [activeView, setActiveView] = useState('dashboard'); // 'dashboard' | 'reader' | 'notes'
@@ -17,6 +23,7 @@ export default function App() {
   const [papers, setPapers] = useState([]);
   const [notes, setNotes] = useState([]);
   const [streak, setStreak] = useState(null);
+  const [requests, setRequests] = useState([]);
 
   // Active Reader Paper
   const [activeReaderPaper, setActiveReaderPaper] = useState(null);
@@ -26,10 +33,12 @@ export default function App() {
       const pData = await getPapers();
       const nData = await getNotes();
       const sData = getStreak();
+      const rData = await getResourceRequests();
 
       setPapers(pData);
       setNotes(nData);
       setStreak(sData);
+      setRequests(rData);
     }
     loadData();
   }, []);
@@ -50,6 +59,7 @@ export default function App() {
 
   // Open Paper in Reader Mode
   const handleOpenReader = (paper) => {
+    if (!paper?.pdfUrl) return;
     setActiveReaderPaper(paper);
     setActiveView('reader');
   };
@@ -64,6 +74,12 @@ export default function App() {
   const handleDeleteNote = async (noteId) => {
     const updatedNotes = await deleteNote(noteId);
     setNotes(updatedNotes);
+  };
+
+  // Save Resource Request
+  const handleRequestResource = async (reqData) => {
+    const updatedReqs = await saveResourceRequest(reqData);
+    setRequests(updatedReqs);
   };
 
   // Toggle Today's Reading Completion
@@ -130,6 +146,12 @@ export default function App() {
                 ))}
               </div>
             </div>
+
+            {/* 4. Arshi's Resource Request Widget */}
+            <ResourceRequestWidget
+              requests={requests}
+              onRequestResource={handleRequestResource}
+            />
 
           </div>
         )}
