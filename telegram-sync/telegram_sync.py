@@ -12,7 +12,7 @@ load_dotenv()
 API_ID = os.getenv('TELEGRAM_API_ID')
 API_HASH = os.getenv('TELEGRAM_API_HASH')
 SESSION_NAME = os.getenv('TELEGRAM_SESSION', 'akhbar_session')
-SOURCE_CHAT_ID = os.getenv('TELEGRAM_SOURCE_CHAT')  # Username, Phone, Chat ID, or Channel
+SOURCE_CHAT_ID = os.getenv('TELEGRAM_SOURCE_CHAT')  # Username, Chat ID, Channel, or Bot Chat
 
 SUPABASE_URL = os.getenv('VITE_SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('VITE_SUPABASE_ANON_KEY')
@@ -26,30 +26,24 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def detect_target_newspaper(filename: str, caption: str):
     """
-    Strictly filters the 3 target newspapers (Delhi/National Editions) out of 100s of Telegram channel files:
-    1. The Hindu (Delhi / National Edition)
-    2. The Indian Express (Delhi Edition)
-    3. The Times of India (Delhi Edition)
-    
-    Returns (brand_id, brand_name) or None if not one of the desired 3.
+    Exact keyword matcher for user's specific daily file names:
+    - 'TH delhi' -> The Hindu Delhi
+    - 'toi delhi' -> The Times of India Delhi
+    - 'IE dlhi' / 'IE delhi' -> The Indian Express Delhi
     """
     text = (filename + " " + caption).lower().replace('_', ' ').replace('-', ' ')
 
-    # 1. The Hindu (Delhi / National)
-    if 'hindu' in text:
-        # Check if it's Delhi or National or standard Hindu
-        if any(kw in text for kw in ['delhi', 'national', 'ed']) or 'chennai' not in text:
-            return ('the-hindu', 'The Hindu')
+    # 1. The Hindu Delhi ('th delhi' or 'hindu delhi')
+    if ('th' in text or 'hindu' in text) and ('delhi' in text or 'dlhi' in text or 'national' in text):
+        return ('the-hindu', 'The Hindu')
 
-    # 2. Indian Express (Delhi)
-    if 'express' in text or ' ie ' in text or text.startswith('ie '):
-        if any(kw in text for kw in ['delhi', 'national', 'ed']):
-            return ('indian-express', 'The Indian Express')
+    # 2. Indian Express Delhi ('ie dlhi' or 'ie delhi' or 'express delhi')
+    if ('ie' in text or 'express' in text) and ('dlhi' in text or 'delhi' in text):
+        return ('indian-express', 'The Indian Express')
 
-    # 3. The Times of India (Delhi)
-    if 'times of india' in text or 'toi' in text:
-        if 'delhi' in text or 'capital' in text or 'edition' in text:
-            return ('toi', 'The Times of India')
+    # 3. The Times of India Delhi ('toi delhi' or 'times delhi')
+    if ('toi' in text or 'times' in text) and ('delhi' in text or 'dlhi' in text):
+        return ('toi', 'The Times of India')
 
     return None
 
@@ -61,7 +55,6 @@ async def process_message(message):
     doc = message.media.document
     mime_type = doc.mime_type or ''
     
-    # Check if document is PDF
     if 'pdf' not in mime_type.lower():
         return
 
@@ -74,7 +67,7 @@ async def process_message(message):
 
     target = detect_target_newspaper(filename, caption)
     if not target:
-        print(f"⏩ Skipped non-target file: '{filename}' (Not Delhi Hindu/IE/TOI)")
+        print(f"⏩ Skipped file: '{filename}' (Not TH delhi, TOI delhi, or IE dlhi)")
         return
 
     brand_slug, brand_name = target
@@ -82,11 +75,11 @@ async def process_message(message):
     paper_id = f"np-{brand_slug}-{today_date}"
     temp_filepath = f"temp_{brand_slug}_{today_date}.pdf"
 
-    print(f"🎯 Target Found! Downloading {brand_name} (Delhi Edition) for {today_date}...")
+    print(f"🎯 Matched: {filename} -> {brand_name} ({today_date})")
     await message.download_media(file=temp_filepath)
 
     bucket_name = "newspapers"
-    storage_path = `${today_date}/${brand_slug}.pdf`
+    storage_path = f"{today_date}/{brand_slug}.pdf"
 
     print(f"☁️ Uploading to Supabase Storage: {storage_path}...")
     with open(temp_filepath, 'rb') as f:
@@ -115,7 +108,7 @@ async def process_message(message):
     print(f"💾 Saving paper record to Supabase database...")
     try:
         supabase.table("newspapers").upsert(record).execute()
-        print(f"✅ SUCCESS! {brand_name} (Delhi) uploaded & live on Arshi's Desk!")
+        print(f"✅ SUCCESS! {brand_name} uploaded & live on Arshi's Desk!")
     except Exception as e:
         print(f"❌ Database error: {e}")
 
@@ -129,14 +122,14 @@ async def main():
 
     client = TelegramClient(SESSION_NAME, int(API_ID), API_HASH)
     await client.start()
-    print("🚀 Telegram Delhi Edition Sync Started!")
+    print("🚀 Telegram Sync Started with exact TH delhi, TOI delhi, IE dlhi matching!")
 
     @client.on(events.NewMessage(chats=SOURCE_CHAT_ID if SOURCE_CHAT_ID else None))
     async def handler(event):
         print("📩 New Telegram message received!")
         await process_message(event.message)
 
-    print("📡 Monitoring channel for Delhi Editions of Hindu, IE & TOI...")
+    print("📡 Monitoring chat/channel for TH delhi, TOI delhi, and IE dlhi...")
     await client.run_until_disconnected()
 
 if __name__ == '__main__':
