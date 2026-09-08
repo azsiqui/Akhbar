@@ -11,6 +11,7 @@ load_dotenv()
 
 API_ID = os.getenv('TELEGRAM_API_ID')
 API_HASH = os.getenv('TELEGRAM_API_HASH')
+BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Bot token from @BotFather
 SESSION_NAME = os.getenv('TELEGRAM_SESSION', 'akhbar_session')
 SOURCE_CHAT_INPUT = os.getenv('TELEGRAM_SOURCE_CHAT', '')
 
@@ -24,13 +25,12 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Parse multiple chats/channels (comma-separated usernames or channel titles)
+# Parse multiple chats/channels
 parsed_chats = []
 if SOURCE_CHAT_INPUT:
     for item in SOURCE_CHAT_INPUT.split(','):
         cleaned = item.strip()
         if cleaned:
-            # Ensure bot username has @
             if 'bot' in cleaned.lower() and not cleaned.startswith('@'):
                 cleaned = '@' + cleaned
             parsed_chats.append(cleaned)
@@ -60,14 +60,14 @@ def detect_target_newspaper(filename: str, caption: str):
 
 async def process_message(message):
     """Processes incoming/forwarded Telegram message containing a PDF document."""
-    if not message.media or not hasattr(message.media, 'document'):
-        return
+    if not message or not message.media or not hasattr(message.media, 'document'):
+        return False
 
     doc = message.media.document
     mime_type = doc.mime_type or ''
     
     if 'pdf' not in mime_type.lower():
-        return
+        return False
 
     caption = message.text or ''
     filename = ''
@@ -78,8 +78,8 @@ async def process_message(message):
 
     target = detect_target_newspaper(filename, caption)
     if not target:
-        print(f"⏩ Skipped non-target file: '{filename}'")
-        return
+        print(f"⏩ Skipped file: '{filename}' (Not TH delhi, TOI delhi, or IE dlhi)")
+        return False
 
     brand_slug, brand_name = target
     today_date = datetime.date.today().isoformat()
@@ -120,11 +120,14 @@ async def process_message(message):
     try:
         supabase.table("newspapers").upsert(record).execute()
         print(f"✅ SUCCESS! {brand_name} uploaded & live on Arshi's Desk!")
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+        return True
     except Exception as e:
         print(f"❌ Database error: {e}")
-
-    if os.path.exists(temp_filepath):
-        os.remove(temp_filepath)
+        if os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+        return False
 
 async def main():
     if not API_ID or not API_HASH:
@@ -132,16 +135,28 @@ async def main():
         return
 
     client = TelegramClient(SESSION_NAME, int(API_ID), API_HASH)
-    await client.start()
-    print(f"🚀 Telegram Multi-Chat Sync Started! Listening to: {parsed_chats if parsed_chats else 'All Channels & Bot Chats'}")
+    
+    if BOT_TOKEN:
+        print("🤖 Logging in using TELEGRAM_BOT_TOKEN...")
+        await client.start(bot_token=BOT_TOKEN)
+    else:
+        print("📱 Starting Telegram client...")
+        await client.start()
 
-    @client.on(events.NewMessage(chats=parsed_chats if parsed_chats else None))
-    async def handler(event):
-        print("📩 New Telegram message received!")
-        await process_message(event.message)
+    print("🚀 Telegram Sync active!")
 
-    print("📡 Monitoring English Newspapers & @arshi_desk_paper_bot for TH delhi, TOI delhi, and IE dlhi...")
-    await client.run_until_disconnected()
+    # Search recent messages in target chats to process any un-synced daily PDFs
+    target_chats = parsed_chats if parsed_chats else ['me']
+    for chat in target_chats:
+        try:
+            print(f"🔍 Checking recent messages in: {chat}...")
+            async for msg in client.iter_messages(chat, limit=20):
+                await process_message(msg)
+        except Exception as e:
+            print(f"Notice inspecting {chat}: {e}")
+
+    print("✅ Sync check completed cleanly!")
+    await client.disconnect()
 
 if __name__ == '__main__':
     asyncio.run(main())
