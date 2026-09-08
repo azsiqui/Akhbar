@@ -11,7 +11,7 @@ load_dotenv()
 
 API_ID = os.getenv('TELEGRAM_API_ID')
 API_HASH = os.getenv('TELEGRAM_API_HASH')
-BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')  # Bot token from @BotFather
+BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 SESSION_NAME = os.getenv('TELEGRAM_SESSION', 'akhbar_session')
 SOURCE_CHAT_INPUT = os.getenv('TELEGRAM_SOURCE_CHAT', '')
 
@@ -37,48 +37,45 @@ if SOURCE_CHAT_INPUT:
 
 def detect_target_newspaper(filename: str, caption: str):
     """
-    Exact keyword matcher for user's specific daily file names:
-    - 'TH delhi' -> The Hindu Delhi
-    - 'toi delhi' -> The Times of India Delhi
-    - 'IE dlhi' / 'IE delhi' -> The Indian Express Delhi
+    Broad & flexible keyword matcher for daily newspaper PDFs:
+    - Matches The Hindu, Indian Express, and Times of India
     """
-    text = (filename + " " + caption).lower().replace('_', ' ').replace('-', ' ')
+    text = (filename + " " + caption).lower().replace('_', ' ').replace('-', ' ').replace('.', ' ')
 
-    # 1. The Hindu Delhi ('th delhi' or 'hindu delhi')
-    if ('th' in text or 'hindu' in text) and ('delhi' in text or 'dlhi' in text or 'national' in text):
+    # 1. The Hindu
+    if 'hindu' in text or 'th delhi' in text or 'th dlhi' in text or text.startswith('th ') or ' th ' in text:
         return ('the-hindu', 'The Hindu')
 
-    # 2. Indian Express Delhi ('ie dlhi' or 'ie delhi' or 'express delhi')
-    if ('ie' in text or 'express' in text) and ('dlhi' in text or 'delhi' in text):
+    # 2. Indian Express
+    if 'express' in text or 'ie delhi' in text or 'ie dlhi' in text or text.startswith('ie ') or ' ie ' in text:
         return ('indian-express', 'The Indian Express')
 
-    # 3. The Times of India Delhi ('toi delhi' or 'times delhi')
-    if ('toi' in text or 'times' in text) and ('delhi' in text or 'dlhi' in text):
+    # 3. The Times of India
+    if 'toi' in text or 'times' in text:
         return ('toi', 'The Times of India')
 
     return None
 
 async def process_message(message):
-    """Processes incoming/forwarded Telegram message containing a PDF document."""
+    """Processes Telegram message containing a PDF document."""
     if not message or not message.media or not hasattr(message.media, 'document'):
         return False
 
     doc = message.media.document
     mime_type = doc.mime_type or ''
     
-    if 'pdf' not in mime_type.lower():
-        return False
-
     caption = message.text or ''
-    filename = ''
+    filename = 'unnamed.pdf'
     for attr in doc.attributes:
         if hasattr(attr, 'file_name'):
             filename = attr.file_name
             break
 
+    print(f"📄 Inspecting file: '{filename}' (Mime: '{mime_type}', Caption: '{caption}')")
+
     target = detect_target_newspaper(filename, caption)
     if not target:
-        print(f"⏩ Skipped file: '{filename}' (Not TH delhi, TOI delhi, or IE dlhi)")
+        print(f"⏩ Skipped non-target file: '{filename}'")
         return False
 
     brand_slug, brand_name = target
@@ -86,7 +83,7 @@ async def process_message(message):
     paper_id = f"np-{brand_slug}-{today_date}"
     temp_filepath = f"temp_{brand_slug}_{today_date}.pdf"
 
-    print(f"🎯 Matched: {filename} -> {brand_name} ({today_date})")
+    print(f"🎯 MATCH FOUND! Processing '{filename}' as {brand_name} ({today_date})...")
     await message.download_media(file=temp_filepath)
 
     bucket_name = "newspapers"
@@ -116,7 +113,7 @@ async def process_message(message):
         "created_at": datetime.datetime.utcnow().isoformat()
     }
 
-    print(f"💾 Saving paper record to Supabase database...")
+    print(f"💾 Saving paper record to Supabase database table...")
     try:
         supabase.table("newspapers").upsert(record).execute()
         print(f"✅ SUCCESS! {brand_name} uploaded & live on Arshi's Desk!")
@@ -145,15 +142,17 @@ async def main():
 
     print("🚀 Telegram Sync active!")
 
-    # Search recent messages in target chats to process any un-synced daily PDFs
-    target_chats = parsed_chats if parsed_chats else ['me']
-    for chat in target_chats:
+    # Inspect messages across dialogs/chats
+    dialogs = await client.get_dialogs(limit=10)
+    print(f"💬 Found {len(dialogs)} active chats/dialogs on Telegram.")
+
+    for dialog in dialogs:
+        print(f"🔍 Inspecting chat: '{dialog.name}' (ID: {dialog.id})...")
         try:
-            print(f"🔍 Checking recent messages in: {chat}...")
-            async for msg in client.iter_messages(chat, limit=20):
+            async for msg in client.iter_messages(dialog, limit=15):
                 await process_message(msg)
         except Exception as e:
-            print(f"Notice inspecting {chat}: {e}")
+            print(f"Notice reading {dialog.name}: {e}")
 
     print("✅ Sync check completed cleanly!")
     await client.disconnect()
