@@ -12,7 +12,7 @@ load_dotenv()
 API_ID = os.getenv('TELEGRAM_API_ID')
 API_HASH = os.getenv('TELEGRAM_API_HASH')
 SESSION_NAME = os.getenv('TELEGRAM_SESSION', 'akhbar_session')
-SOURCE_CHAT_ID = os.getenv('TELEGRAM_SOURCE_CHAT')  # Username, Chat ID, Channel, or Bot Chat
+SOURCE_CHAT_INPUT = os.getenv('TELEGRAM_SOURCE_CHAT', '')  # Can be comma-separated usernames/chats
 
 SUPABASE_URL = os.getenv('VITE_SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('VITE_SUPABASE_ANON_KEY')
@@ -23,6 +23,9 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Parse multiple chats if comma-separated
+chats_list = [c.strip() for c in SOURCE_CHAT_INPUT.split(',') if c.strip()] if SOURCE_CHAT_INPUT else None
 
 def detect_target_newspaper(filename: str, caption: str):
     """
@@ -67,7 +70,7 @@ async def process_message(message):
 
     target = detect_target_newspaper(filename, caption)
     if not target:
-        print(f"⏩ Skipped file: '{filename}' (Not TH delhi, TOI delhi, or IE dlhi)")
+        print(f"⏩ Skipped non-target file: '{filename}'")
         return
 
     brand_slug, brand_name = target
@@ -122,14 +125,14 @@ async def main():
 
     client = TelegramClient(SESSION_NAME, int(API_ID), API_HASH)
     await client.start()
-    print("🚀 Telegram Sync Started!")
+    print(f"🚀 Telegram Multi-Chat Sync Started! Listening to: {chats_list if chats_list else 'All Channels & Bot Chats'}")
 
-    @client.on(events.NewMessage(chats=SOURCE_CHAT_ID if SOURCE_CHAT_ID else None))
+    @client.on(events.NewMessage(chats=chats_list))
     async def handler(event):
         print("📩 New Telegram message received!")
         await process_message(event.message)
 
-    print("📡 Monitoring chat/channel for TH delhi, TOI delhi, and IE dlhi...")
+    print("📡 Monitoring target channels & bot chat for TH delhi, TOI delhi, and IE dlhi...")
     await client.run_until_disconnected()
 
 if __name__ == '__main__':
