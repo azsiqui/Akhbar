@@ -122,7 +122,7 @@ async def main():
 
     client = TelegramClient(SESSION_NAME, int(API_ID), API_HASH)
     await client.start()
-    print("🚀 Telegram Sync Started with exact TH delhi, TOI delhi, IE dlhi matching!")
+    print("🚀 Telegram Sync Started!")
 
     @client.on(events.NewMessage(chats=SOURCE_CHAT_ID if SOURCE_CHAT_ID else None))
     async def handler(event):
