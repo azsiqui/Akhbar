@@ -12,7 +12,7 @@ load_dotenv()
 API_ID = os.getenv('TELEGRAM_API_ID')
 API_HASH = os.getenv('TELEGRAM_API_HASH')
 SESSION_NAME = os.getenv('TELEGRAM_SESSION', 'akhbar_session')
-SOURCE_CHAT_INPUT = os.getenv('TELEGRAM_SOURCE_CHAT', '')  # Can be comma-separated usernames/chats
+SOURCE_CHAT_INPUT = os.getenv('TELEGRAM_SOURCE_CHAT', '')
 
 SUPABASE_URL = os.getenv('VITE_SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('VITE_SUPABASE_ANON_KEY')
@@ -24,8 +24,16 @@ if not SUPABASE_URL or not SUPABASE_KEY:
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Parse multiple chats if comma-separated
-chats_list = [c.strip() for c in SOURCE_CHAT_INPUT.split(',') if c.strip()] if SOURCE_CHAT_INPUT else None
+# Parse multiple chats/channels (comma-separated usernames or channel titles)
+parsed_chats = []
+if SOURCE_CHAT_INPUT:
+    for item in SOURCE_CHAT_INPUT.split(','):
+        cleaned = item.strip()
+        if cleaned:
+            # Ensure bot username has @
+            if 'bot' in cleaned.lower() and not cleaned.startswith('@'):
+                cleaned = '@' + cleaned
+            parsed_chats.append(cleaned)
 
 def detect_target_newspaper(filename: str, caption: str):
     """
@@ -125,14 +133,14 @@ async def main():
 
     client = TelegramClient(SESSION_NAME, int(API_ID), API_HASH)
     await client.start()
-    print(f"🚀 Telegram Multi-Chat Sync Started! Listening to: {chats_list if chats_list else 'All Channels & Bot Chats'}")
+    print(f"🚀 Telegram Multi-Chat Sync Started! Listening to: {parsed_chats if parsed_chats else 'All Channels & Bot Chats'}")
 
-    @client.on(events.NewMessage(chats=chats_list))
+    @client.on(events.NewMessage(chats=parsed_chats if parsed_chats else None))
     async def handler(event):
         print("📩 New Telegram message received!")
         await process_message(event.message)
 
-    print("📡 Monitoring target channels & bot chat for TH delhi, TOI delhi, and IE dlhi...")
+    print("📡 Monitoring English Newspapers & @arshi_desk_paper_bot for TH delhi, TOI delhi, and IE dlhi...")
     await client.run_until_disconnected()
 
 if __name__ == '__main__':
