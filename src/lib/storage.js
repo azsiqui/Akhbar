@@ -297,15 +297,34 @@ export async function getAnnouncement() {
 
   if (isSupabaseConfigured && supabase) {
     try {
-      const { data, error } = await supabase
+      // 1. Try fetching from 'announcements' table
+      const { data: annData, error: annError } = await supabase
         .from('announcements')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(1);
 
-      if (!error && data && data.length > 0) {
-        setLocal(KEYS.ANNOUNCEMENT, data[0]);
-        return data[0];
+      if (!annError && annData && annData.length > 0) {
+        setLocal(KEYS.ANNOUNCEMENT, annData[0]);
+        return annData[0];
+      }
+
+      // 2. Dual Fallback: Check if saved in 'notes' table under gs_category = 'ANNOUNCEMENT'
+      const { data: noteData, error: noteError } = await supabase
+        .from('notes')
+        .select('*')
+        .eq('gs_category', 'ANNOUNCEMENT')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!noteError && noteData && noteData.length > 0) {
+        const converted = {
+          id: noteData[0].id,
+          message: noteData[0].content,
+          created_at: noteData[0].created_at
+        };
+        setLocal(KEYS.ANNOUNCEMENT, converted);
+        return converted;
       }
     } catch (e) {
       console.warn('Supabase announcement fetch note:', e);
@@ -315,19 +334,42 @@ export async function getAnnouncement() {
 }
 
 export async function saveAnnouncement(message) {
+  const todayIso = new Date().toISOString();
+  const annId = `ann-${Date.now()}`;
   const newAnn = {
-    id: `ann-${Date.now()}`,
+    id: annId,
     message: message,
-    created_at: new Date().toISOString()
+    created_at: todayIso
   };
 
   setLocal(KEYS.ANNOUNCEMENT, newAnn);
 
   if (isSupabaseConfigured && supabase) {
     try {
-      const { error } = await supabase.from('announcements').insert([newAnn]);
-      if (error) {
-        console.error('Supabase announcement insert error:', error);
+      // 1. Try inserting to 'announcements' table
+      const { error: annError } = await supabase.from('announcements').insert([newAnn]);
+      
+      if (annError) {
+        console.warn('Announcements table note (using notes table fallback):', annError.message);
+        
+        // 2. Dual Fallback: Save into existing 'notes' table so it ALWAYS succeeds on Supabase!
+        const noteRecord = {
+          id: annId,
+          title: 'System Announcement',
+          gs_category: 'ANNOUNCEMENT',
+          source: 'Admin',
+          content: message,
+          created_at: todayIso,
+          updated_at: todayIso
+        };
+        const { error: noteErr } = await supabase.from('notes').upsert([noteRecord]);
+        if (noteErr) {
+          console.error('Notes fallback insert error:', noteErr);
+        } else {
+          console.log('✅ Announcement saved live to Supabase via notes table fallback!');
+        }
+      } else {
+        console.log('✅ Announcement saved live to Supabase announcements table!');
       }
     } catch (e) {
       console.error('Supabase announcement exception:', e);

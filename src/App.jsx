@@ -67,6 +67,27 @@ export default function App() {
     loadData();
   }, []);
 
+  // Live Announcement Sync (Polls Supabase every 15s and on window focus)
+  useEffect(() => {
+    async function syncAnnouncement() {
+      const aData = await getAnnouncement();
+      if (aData?.id) {
+        setAnnouncement(aData);
+        const lastRead = localStorage.getItem('arshi_last_read_announcement');
+        if (lastRead !== aData.id) {
+          setHasUnreadAnnouncement(true);
+        }
+      }
+    }
+
+    const interval = setInterval(syncAnnouncement, 15000);
+    window.addEventListener('focus', syncAnnouncement);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', syncAnnouncement);
+    };
+  }, []);
+
   // 2. Dark Mode Toggle
   useEffect(() => {
     if (isDarkMode) {
