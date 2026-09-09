@@ -2,28 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { Play, Pause, RotateCcw, Timer } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-export default function FocusClock() {
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
-  const [isRunning, setIsRunning] = useState(false);
-  const [mode, setMode] = useState('25m'); // '25m' | '5m'
+export default function FocusClock({
+  timeLeft: propTimeLeft,
+  isRunning: propIsRunning,
+  mode: propMode,
+  onToggle,
+  onReset
+}) {
+  const [internalTimeLeft, setInternalTimeLeft] = useState(25 * 60);
+  const [internalIsRunning, setInternalIsRunning] = useState(false);
+  const [internalMode, setInternalMode] = useState('25m');
+
+  const isControlled = propTimeLeft !== undefined;
+
+  const timeLeft = isControlled ? propTimeLeft : internalTimeLeft;
+  const isRunning = isControlled ? propIsRunning : internalIsRunning;
+  const mode = isControlled ? propMode : internalMode;
 
   useEffect(() => {
+    if (isControlled) return;
     let timer = null;
     if (isRunning && timeLeft > 0) {
-      timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
+      timer = setInterval(() => setInternalTimeLeft(t => t - 1), 1000);
     } else if (timeLeft === 0 && isRunning) {
-      setIsRunning(false);
+      setInternalIsRunning(false);
       confetti({ particleCount: 50, spread: 50, origin: { y: 0.7 } });
     }
     return () => clearInterval(timer);
-  }, [isRunning, timeLeft]);
+  }, [isControlled, isRunning, timeLeft]);
 
-  const toggle = () => setIsRunning(!isRunning);
-  
+  const toggle = () => {
+    if (isControlled && onToggle) onToggle();
+    else setInternalIsRunning(!internalIsRunning);
+  };
+
   const reset = (m = mode) => {
-    setIsRunning(false);
-    setMode(m);
-    setTimeLeft(m === '25m' ? 25 * 60 : 5 * 60);
+    if (isControlled && onReset) onReset(m);
+    else {
+      setInternalIsRunning(false);
+      setInternalMode(m);
+      setInternalTimeLeft(m === '25m' ? 25 * 60 : 5 * 60);
+    }
   };
 
   const mins = Math.floor(timeLeft / 60);
@@ -35,9 +54,14 @@ export default function FocusClock() {
       
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Timer className="w-5 h-5 text-gold-600 dark:text-gold-400" />
-          <h3 className="font-serif font-bold text-base text-brown-900 dark:text-cream-100">
+          <Timer className={`w-5 h-5 ${isRunning ? 'text-gold-500 animate-pulse' : 'text-gold-600 dark:text-gold-400'}`} />
+          <h3 className="font-serif font-bold text-base text-brown-900 dark:text-cream-100 flex items-center gap-2">
             Focus Clock
+            {isRunning && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-forest-500/20 text-forest-700 dark:text-forest-300 font-sans font-semibold">
+                Running
+              </span>
+            )}
           </h3>
         </div>
 

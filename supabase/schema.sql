@@ -38,17 +38,25 @@ CREATE TABLE IF NOT EXISTS resource_requests (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 4. Announcements Table
+CREATE TABLE IF NOT EXISTS announcements (
+  id TEXT PRIMARY KEY,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Database Row Level Security
 ALTER TABLE newspapers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resource_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE announcements ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow all newspapers" ON newspapers FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all notes" ON notes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all resource_requests" ON resource_requests FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all announcements" ON announcements FOR ALL USING (true) WITH CHECK (true);
 
--- 4. Storage Bucket Policies for 'newspapers' Bucket
--- (Allows uploading PDF files directly from web app without authentication)
+-- 5. Storage Bucket Policies for 'newspapers' Bucket
 CREATE POLICY "Allow public uploads to newspapers bucket"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'newspapers');

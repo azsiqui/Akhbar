@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import TopHeader from './components/layout/TopHeader';
 import StickyDuaNote from './components/widgets/StickyDuaNote';
 import StreakWidget from './components/widgets/StreakWidget';
@@ -7,12 +8,14 @@ import BrandNewspaperCard from './components/newspapers/BrandNewspaperCard';
 import SimplePDFReader from './components/reader/SimplePDFReader';
 import NotesSection from './components/notes/NotesSection';
 import ResourceRequestWidget from './components/widgets/ResourceRequestWidget';
+import AnnouncementModal from './components/common/AnnouncementModal';
 
 import {
   getPapers, uploadPaperFile, savePaper,
   getNotes, saveNote, deleteNote,
   getStreak, saveStreak,
-  getResourceRequests, saveResourceRequest
+  getResourceRequests, saveResourceRequest,
+  getAnnouncement, saveAnnouncement
 } from './lib/storage';
 
 export default function App() {
@@ -25,24 +28,46 @@ export default function App() {
   const [streak, setStreak] = useState(null);
   const [requests, setRequests] = useState([]);
 
+  // Announcement State
+  const [announcement, setAnnouncement] = useState(null);
+  const [hasUnreadAnnouncement, setHasUnreadAnnouncement] = useState(false);
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
+
+  // Persistent Focus Clock Timer State
+  const [timerTimeLeft, setTimerTimeLeft] = useState(25 * 60);
+  const [timerIsRunning, setTimerIsRunning] = useState(false);
+  const [timerMode, setTimerMode] = useState('25m'); // '25m' | '5m'
+
   // Active Reader Paper
   const [activeReaderPaper, setActiveReaderPaper] = useState(null);
 
+  // 1. Initial Data Loading
   useEffect(() => {
     async function loadData() {
       const pData = await getPapers();
       const nData = await getNotes();
       const sData = getStreak();
       const rData = await getResourceRequests();
+      const aData = await getAnnouncement();
 
       setPapers(pData);
       setNotes(nData);
       setStreak(sData);
       setRequests(rData);
+      setAnnouncement(aData);
+
+      // Check if current announcement is unread
+      if (aData?.id) {
+        const lastRead = localStorage.getItem('arshi_last_read_announcement');
+        if (lastRead !== aData.id) {
+          setHasUnreadAnnouncement(true);
+        }
+      }
     }
     loadData();
   }, []);
 
+  // 2. Dark Mode Toggle
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -51,13 +76,37 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  // 3. Persistent Timer Countdown Engine
+  useEffect(() => {
+    let interval = null;
+    if (timerIsRunning && timerTimeLeft > 0) {
+      interval = setInterval(() => {
+        setTimerTimeLeft((t) => t - 1);
+      }, 1000);
+    } else if (timerTimeLeft === 0 && timerIsRunning) {
+      setTimerIsRunning(false);
+      confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerIsRunning, timerTimeLeft]);
+
+  const handleToggleTimer = () => setTimerIsRunning((r) => !r);
+
+  const handleResetTimer = (newMode = timerMode) => {
+    setTimerIsRunning(false);
+    setTimerMode(newMode);
+    setTimerTimeLeft(newMode === '25m' ? 25 * 60 : 5 * 60);
+  };
+
   // Handle PDF File Upload with Supabase Storage Cloud Sync
   const handleUploadPaperFile = async (paperBrand, file) => {
     const updatedList = await uploadPaperFile(paperBrand, file);
     setPapers(updatedList);
   };
 
-  // Open Paper in Reader Mode
+  // Open Paper in Reader Mode (Timer keeps running uninterrupted!)
   const handleOpenReader = (paper) => {
     if (!paper?.pdfUrl) return;
     setActiveReaderPaper(paper);
@@ -93,6 +142,22 @@ export default function App() {
     setStreak(newStreak);
   };
 
+  // Announcement Handlers
+  const handleOpenAnnouncementModal = () => {
+    setIsAnnouncementOpen(true);
+    setHasUnreadAnnouncement(false);
+    if (announcement?.id) {
+      localStorage.setItem('arshi_last_read_announcement', announcement.id);
+    }
+  };
+
+  const handlePublishAnnouncement = async (messageText) => {
+    const newAnn = await saveAnnouncement(messageText);
+    setAnnouncement(newAnn);
+    setHasUnreadAnnouncement(false);
+    localStorage.setItem('arshi_last_read_announcement', newAnn.id);
+  };
+
   return (
     <div className="min-h-screen bg-cream-100 dark:bg-academic-paperDark text-brown-900 dark:text-cream-100 flex flex-col font-sans transition-colors duration-300">
       
@@ -102,6 +167,16 @@ export default function App() {
         setActiveView={setActiveView}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+        onOpenAnnouncement={handleOpenAnnouncementModal}
+        hasUnreadAnnouncement={hasUnreadAnnouncement}
+      />
+
+      {/* Announcement Modal Popup */}
+      <AnnouncementModal
+        isOpen={isAnnouncementOpen}
+        onClose={() => setIsAnnouncementOpen(false)}
+        announcement={announcement}
+        onPublish={handlePublishAnnouncement}
       />
 
       {/* Main Workspace */}
@@ -120,7 +195,13 @@ export default function App() {
                 streak={streak}
                 onToggleTodayComplete={handleToggleStreakComplete}
               />
-              <FocusClock />
+              <FocusClock
+                timeLeft={timerTimeLeft}
+                isRunning={timerIsRunning}
+                mode={timerMode}
+                onToggle={handleToggleTimer}
+                onReset={handleResetTimer}
+              />
             </div>
 
             {/* 3. Three Dedicated Newspaper Cards */}
@@ -161,6 +242,10 @@ export default function App() {
             paper={activeReaderPaper}
             onBack={() => setActiveView('dashboard')}
             onSaveNote={handleSaveNote}
+            timerTimeLeft={timerTimeLeft}
+            timerIsRunning={timerIsRunning}
+            onToggleTimer={handleToggleTimer}
+            onResetTimer={handleResetTimer}
           />
         )}
 

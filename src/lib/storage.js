@@ -5,7 +5,8 @@ const KEYS = {
   PAPERS: 'arshi_v3_papers',
   NOTES: 'arshi_v3_notes',
   STREAK: 'arshi_v3_streak',
-  REQUESTS: 'arshi_v3_requests'
+  REQUESTS: 'arshi_v3_requests',
+  ANNOUNCEMENT: 'arshi_v3_announcement'
 };
 
 function getLocal(key, fallback) {
@@ -284,4 +285,53 @@ export async function saveResourceRequest(reqData) {
   }
 
   return updated;
+}
+
+// --- ANNOUNCEMENTS ---
+export async function getAnnouncement() {
+  const defaultAnn = {
+    id: 'ann-default',
+    message: "Assalamu Alaikum Arshi! Welcome to your UPSC study desk. Daily newspapers are updated automatically every morning.",
+    created_at: new Date().toISOString()
+  };
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('announcements')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (!error && data && data.length > 0) {
+        setLocal(KEYS.ANNOUNCEMENT, data[0]);
+        return data[0];
+      }
+    } catch (e) {
+      console.warn('Supabase announcement fetch note:', e);
+    }
+  }
+  return getLocal(KEYS.ANNOUNCEMENT, defaultAnn);
+}
+
+export async function saveAnnouncement(message) {
+  const newAnn = {
+    id: `ann-${Date.now()}`,
+    message: message,
+    created_at: new Date().toISOString()
+  };
+
+  setLocal(KEYS.ANNOUNCEMENT, newAnn);
+
+  if (isSupabaseConfigured && supabase) {
+    try {
+      const { error } = await supabase.from('announcements').insert([newAnn]);
+      if (error) {
+        console.error('Supabase announcement insert error:', error);
+      }
+    } catch (e) {
+      console.error('Supabase announcement exception:', e);
+    }
+  }
+  return newAnn;
 }

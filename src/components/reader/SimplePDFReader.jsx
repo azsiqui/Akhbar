@@ -1,13 +1,24 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ZoomIn, ZoomOut, RotateCw, BookOpen, FileText, Save, Check } from 'lucide-react';
+import { ArrowLeft, ZoomIn, ZoomOut, RotateCw, BookOpen, FileText, Save, Check, Play, Pause, Timer } from 'lucide-react';
 
-export default function SimplePDFReader({ paper, onBack, onSaveNote }) {
+export default function SimplePDFReader({
+  paper,
+  onBack,
+  onSaveNote,
+  timerTimeLeft,
+  timerIsRunning,
+  onToggleTimer,
+  onResetTimer
+}) {
   const [currentPage, setCurrentPage] = useState(paper?.readPage || 1);
   const [zoom, setZoom] = useState(1.0);
-  const [rotation, setRotation] = useState(0);
   const [quickNote, setQuickNote] = useState('');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const totalPages = paper?.pageCount || 14;
+
+  const mins = timerTimeLeft !== undefined ? Math.floor(timerTimeLeft / 60) : 25;
+  const secs = timerTimeLeft !== undefined ? timerTimeLeft % 60 : 0;
+  const timerStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
   const handleSaveQuickNote = () => {
     if (!quickNote.trim()) return;
@@ -42,6 +53,23 @@ export default function SimplePDFReader({ paper, onBack, onSaveNote }) {
             {paper.brandName} &bull; {paper.date}
           </h2>
         </div>
+
+        {/* Persistent Mini Pomodoro Timer in PDF Reader Bar */}
+        {timerTimeLeft !== undefined && (
+          <div className="flex items-center gap-2 px-3 py-1 bg-white dark:bg-brown-900 rounded-xl border border-brown-200 dark:border-brown-700 shadow-2xs">
+            <Timer className={`w-3.5 h-3.5 ${timerIsRunning ? 'text-gold-500 animate-pulse' : 'text-brown-500 dark:text-cream-400'}`} />
+            <span className="font-mono font-bold text-brown-900 dark:text-gold-200">
+              {timerStr}
+            </span>
+            <button
+              onClick={onToggleTimer}
+              className="p-1 rounded-lg bg-brown-500 text-cream-100 dark:bg-gold-400 dark:text-brown-950 font-bold"
+              title={timerIsRunning ? 'Pause Timer' : 'Start Timer'}
+            >
+              {timerIsRunning ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+            </button>
+          </div>
+        )}
 
         {/* Page controls & Zoom */}
         <div className="flex items-center gap-2">
