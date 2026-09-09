@@ -28,9 +28,8 @@ export default function AnnouncementModal({
 
   const handleUnlockAdmin = (e) => {
     e.preventDefault();
-    // Secret Admin Passcode: 1234 or arshi
-    const cleaned = pinInput.trim().toLowerCase();
-    if (cleaned === '1234' || cleaned === 'arshi' || cleaned === '7860') {
+    const cleaned = pinInput.trim();
+    if (cleaned === '910232') {
       setIsAdmin(true);
       localStorage.setItem('arshi_desk_admin_unlocked', 'true');
       setShowPinPrompt(false);
@@ -165,7 +164,7 @@ export default function AnnouncementModal({
                     setPinInput(e.target.value);
                     setPinError(false);
                   }}
-                  placeholder="Enter passcode (e.g. 1234)..."
+                  placeholder="Enter passcode..."
                   className="flex-1 p-2 text-xs rounded-lg bg-white dark:bg-brown-950 border border-brown-300 dark:border-brown-700 text-brown-900 dark:text-cream-100 focus:outline-none focus:ring-1 focus:ring-gold-400"
                 />
                 <button
@@ -178,7 +177,7 @@ export default function AnnouncementModal({
 
               {pinError && (
                 <p className="text-[10px] text-red-600 font-semibold">
-                  Incorrect passcode. Try '1234' or 'arshi'.
+                  Incorrect passcode. Please try again.
                 </p>
               )}
             </form>
@@ -225,7 +224,7 @@ export default function AnnouncementModal({
                 required
                 value={newMessageText}
                 onChange={(e) => setNewMessageText(e.target.value)}
-                placeholder="Type your message here (e.g. 'Assalamu Alaikum! Today's Delhi editions are updated...')"
+                placeholder="Type your message here..."
                 className="w-full p-3 text-xs rounded-xl bg-white dark:bg-brown-900 border border-gold-400/60 text-brown-900 dark:text-cream-100 focus:outline-none focus:ring-1 focus:ring-gold-500 font-sans leading-relaxed"
               />
 
